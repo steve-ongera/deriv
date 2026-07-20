@@ -1,3 +1,4 @@
+```
 deriv-clone/
 ├── README.md
 ├── backend/
@@ -39,3 +40,6 @@ deriv-clone/
             ├── ProfilePage.jsx
             ├── WalletPage.jsx        # deposit/withdraw mpesa + paypal
             └── TradePage.jsx         # live chart + even/odd + over/under
+
+
+```
