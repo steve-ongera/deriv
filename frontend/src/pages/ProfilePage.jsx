@@ -45,6 +45,7 @@ export default function ProfilePage() {
       const updated = await authAPI.updateMe(form);
       setUser(updated);
       setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -56,7 +57,10 @@ export default function ProfilePage() {
     return (
       <div className="pf-page">
         <style>{styles}</style>
-        <p className="pf-loading">Loading profile…</p>
+        <div className="pf-loading">
+          <i className="bi bi-hourglass-split"></i>
+          <span>Loading profile…</span>
+        </div>
       </div>
     );
   }
@@ -66,65 +70,120 @@ export default function ProfilePage() {
       <style>{styles}</style>
 
       <div className="pf-header">
-        <div className="pf-avatar">{initials(user)}</div>
-        <div>
-          <h1 className="pf-username">{user.username}</h1>
-          <p className="pf-joined">
-            Member since {new Date(user.date_joined).toLocaleDateString(undefined, {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
+        <div className="pf-profile-info">
+          <div className="pf-avatar-wrapper">
+            <div className="pf-avatar">{initials(user)}</div>
+          </div>
+          <div>
+            <h1 className="pf-username">
+              {user.first_name || user.last_name ? 
+                `${user.first_name || ''} ${user.last_name || ''}`.trim() : 
+                user.username
+              }
+            </h1>
+            <p className="pf-joined">
+              <i className="bi bi-calendar3"></i>
+              Member since {new Date(user.date_joined).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+            <p className="pf-username-tag">
+              <i className="bi bi-at"></i> {user.username}
+            </p>
+          </div>
         </div>
+
         <div className="pf-balance-card">
-          <span className="pf-balance-label">Balance</span>
+          <div className="pf-balance-header">
+            <span className="pf-balance-label">
+              <i className="bi bi-wallet2"></i> Available Balance
+            </span>
+          </div>
           <span className="pf-balance-value">
-            {wallet ? Number(wallet.balance).toFixed(2) : "—"} {wallet?.currency}
+            {wallet ? Number(wallet.balance).toFixed(2) : "—"} 
+            <span className="pf-balance-currency">{wallet?.currency || "USD"}</span>
           </span>
-          <Link to="/wallet" className="pf-balance-link">Manage wallet →</Link>
         </div>
       </div>
 
       <form className="pf-card" onSubmit={handleSave}>
-        <h2 className="pf-card-title">Account details</h2>
+        <div className="pf-card-header">
+          <h2 className="pf-card-title">
+            <i className="bi bi-person-gear"></i> Account Details
+          </h2>
+          <p className="pf-card-subtitle">Manage your personal information</p>
+        </div>
 
-        <label className="pf-label" htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          className="pf-input"
-          value={form.email}
-          onChange={(e) => update("email", e.target.value)}
-        />
+        <div className="pf-form-group">
+          <label className="pf-label" htmlFor="email">
+            <i className="bi bi-envelope"></i> Email Address
+          </label>
+          <input
+            id="email"
+            type="email"
+            className="pf-input"
+            value={form.email}
+            onChange={(e) => update("email", e.target.value)}
+            placeholder="your@email.com"
+          />
+        </div>
 
         <div className="pf-row">
-          <div>
-            <label className="pf-label" htmlFor="first_name">First name</label>
+          <div className="pf-form-group">
+            <label className="pf-label" htmlFor="first_name">
+              <i className="bi bi-person"></i> First Name
+            </label>
             <input
               id="first_name"
               className="pf-input"
               value={form.first_name}
               onChange={(e) => update("first_name", e.target.value)}
+              placeholder="John"
             />
           </div>
-          <div>
-            <label className="pf-label" htmlFor="last_name">Last name</label>
+          <div className="pf-form-group">
+            <label className="pf-label" htmlFor="last_name">
+              <i className="bi bi-person"></i> Last Name
+            </label>
             <input
               id="last_name"
               className="pf-input"
               value={form.last_name}
               onChange={(e) => update("last_name", e.target.value)}
+              placeholder="Doe"
             />
           </div>
         </div>
 
-        {error && <p className="pf-error">{error}</p>}
-        {saved && <p className="pf-saved">Changes saved.</p>}
+        {error && (
+          <div className="pf-message pf-message--error">
+            <i className="bi bi-exclamation-circle"></i>
+            {error}
+          </div>
+        )}
+        
+        {saved && (
+          <div className="pf-message pf-message--success">
+            <i className="bi bi-check-circle-fill"></i>
+            Changes saved successfully!
+          </div>
+        )}
 
-        <button className="pf-submit" type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save changes"}
-        </button>
+        <div className="pf-form-actions">
+          <button className="pf-submit" type="submit" disabled={saving}>
+            {saving ? (
+              <>
+                <i className="bi bi-hourglass-split"></i> Saving…
+              </>
+            ) : (
+              <>
+                <i className="bi bi-check-lg"></i> Save Changes
+              </>
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );
@@ -141,135 +200,264 @@ function initials(user) {
 }
 
 const styles = `
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css");
+
 .pf-page {
-  max-width: 720px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 40px 20px 64px;
-}
-.pf-loading {
-  color: var(--muted);
-  text-align: center;
-  padding: 60px 0;
+  background: #0a0e14;
+  color: #ffffff;
+  min-height: 100vh;
 }
 
-.pf-header {
+.pf-loading {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 28px;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255,255,255,0.4);
+  font-size: 16px;
+  padding: 80px 0;
+}
+.pf-loading i {
+  font-size: 24px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Header */
+.pf-header {
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+  margin-bottom: 32px;
   flex-wrap: wrap;
 }
+@media (max-width: 768px) {
+  .pf-header {
+    flex-direction: column;
+  }
+}
+
+.pf-profile-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+}
+.pf-avatar-wrapper {
+  position: relative;
+}
 .pf-avatar {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: linear-gradient(135deg, #2dd4bf, #0d9488);
+  border: 2px solid rgba(45, 212, 191, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 18px;
-  color: var(--even);
+  font-size: 24px;
+  color: #06110d;
   flex-shrink: 0;
 }
 .pf-username {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 24px;
+  font-weight: 700;
   margin: 0;
+  color: #ffffff;
 }
 .pf-joined {
-  color: var(--muted);
+  color: rgba(255,255,255,0.5);
   font-size: 13px;
   margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pf-joined i {
+  font-size: 14px;
+}
+.pf-username-tag {
+  color: rgba(255,255,255,0.4);
+  font-size: 13px;
+  margin: 2px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
+/* Balance Card */
 .pf-balance-card {
-  margin-left: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 18px;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.08), rgba(13, 148, 136, 0.04));
+  border: 1px solid rgba(45, 212, 191, 0.15);
+  border-radius: 16px;
+  padding: 20px 24px;
+  min-width: 200px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  justify-content: center;
+}
+.pf-balance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
 }
 .pf-balance-label {
-  color: var(--muted);
-  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pf-balance-label i {
+  font-size: 14px;
 }
 .pf-balance-value {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 700;
-  color: var(--even);
+  color: #2dd4bf;
 }
-.pf-balance-link {
-  font-size: 12px;
-  color: var(--under);
-  text-decoration: none;
-  margin-top: 4px;
+.pf-balance-currency {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.4);
+  margin-left: 4px;
 }
 
+/* Form Card */
 .pf-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 28px;
+  padding: 32px;
+}
+.pf-card-header {
+  margin-bottom: 24px;
 }
 .pf-card-title {
   font-family: var(--font-display);
-  font-size: 18px;
-  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pf-card-title i {
+  color: #2dd4bf;
+}
+.pf-card-subtitle {
+  color: rgba(255,255,255,0.4);
+  font-size: 14px;
+  margin: 0;
+}
+.pf-form-group {
+  margin-bottom: 18px;
 }
 .pf-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .pf-row {
+    grid-template-columns: 1fr;
+  }
 }
 .pf-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255,255,255,0.5);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin: 14px 0 6px;
+  margin-bottom: 6px;
+}
+.pf-label i {
+  font-size: 14px;
 }
 .pf-input {
   width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #ffffff;
   font-size: 15px;
-  padding: 11px 12px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
 }
-.pf-error {
-  color: var(--odd);
-  font-size: 13px;
-  margin: 14px 0 0;
+.pf-input:focus {
+  outline: none;
+  border-color: #2dd4bf;
+  background: rgba(45, 212, 191, 0.05);
 }
-.pf-saved {
-  color: var(--even);
-  font-size: 13px;
-  margin: 14px 0 0;
+.pf-input::placeholder {
+  color: rgba(255,255,255,0.3);
+}
+
+.pf-message {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.pf-message--error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+.pf-message--success {
+  background: rgba(45, 212, 191, 0.08);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  color: #2dd4bf;
+}
+.pf-message i {
+  font-size: 18px;
+}
+
+.pf-form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
 }
 .pf-submit {
-  margin-top: 20px;
-  padding: 12px 22px;
+  padding: 12px 32px;
   border-radius: 10px;
   border: none;
-  background: var(--even);
+  background: linear-gradient(135deg, #2dd4bf, #0d9488);
   color: #06110d;
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+.pf-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(45, 212, 191, 0.3);
 }
 .pf-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 `;
+
+export { ProfilePage };

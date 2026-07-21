@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap");
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css");
 
 :root {
   --bg: #0a0e14;
@@ -44,6 +45,7 @@ select {
 
 a {
   color: inherit;
+  text-decoration: none;
 }
 
 .app-shell {
@@ -59,4 +61,52 @@ a {
 :focus-visible {
   outline: 2px solid var(--under);
   outline-offset: 2px;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Utility Classes */
+.text-even { color: var(--even); }
+.text-odd { color: var(--odd); }
+.text-over { color: var(--over); }
+.text-under { color: var(--under); }
+.text-muted { color: var(--muted); }
+
+.bg-surface { background: var(--surface); }
+.bg-surface-raised { background: var(--surface-raised); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
 }
