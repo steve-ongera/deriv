@@ -33,7 +33,6 @@ export default function LoginPage() {
       <div className="auth-container">
         <div className="auth-brand">
           <div className="auth-logo">
-            <i className="bi bi-graph-up-arrow"></i>
             <span>SmartTrader</span>
           </div>
           <p className="auth-brand-tagline">Trade the last digit, every second</p>

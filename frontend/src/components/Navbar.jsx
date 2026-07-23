@@ -17,6 +17,15 @@ export default function Navbar() {
     setDropdownOpen(false);
   }, [location.pathname]);
 
+  // Lock body scroll while the mobile sidebar is open so the page behind
+  // it can't be dragged/scrolled horizontally or vertically on touch.
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [sidebarOpen]);
+
   // Poll balance for logged-in users
   useEffect(() => {
     if (!isAuthed) {
@@ -211,6 +220,9 @@ const styles = `
   background: rgba(10, 14, 20, 0.95);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  width: 100%;
+  max-width: 100vw;
+  overflow: visible;
 }
 .nb-inner {
   max-width: 1200px;
@@ -219,6 +231,7 @@ const styles = `
   display: flex;
   align-items: center;
   gap: 20px;
+  min-width: 0;
 }
 
 /* Hamburger */
@@ -231,6 +244,9 @@ const styles = `
   cursor: pointer;
   padding: 4px;
   transition: color 0.2s ease;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
 }
 .nb-hamburger:hover {
   color: #2dd4bf;
@@ -251,6 +267,8 @@ const styles = `
   background: linear-gradient(135deg, #ffffff, #2dd4bf);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Navigation */
@@ -259,6 +277,7 @@ const styles = `
   gap: 4px;
   flex: 1;
   margin-left: 8px;
+  min-width: 0;
 }
 .nb-link {
   display: flex;
@@ -271,6 +290,7 @@ const styles = `
   padding: 8px 14px;
   border-radius: 8px;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 .nb-link:hover {
   color: #ffffff;
@@ -290,6 +310,7 @@ const styles = `
   display: flex;
   align-items: center;
   gap: 32px;
+  flex-shrink: 0;
 }
 
 /* User Menu */
@@ -306,6 +327,7 @@ const styles = `
   border: 1px solid rgba(255,255,255,0.06);
   background: rgba(255,255,255,0.03);
   transition: all 0.2s ease;
+  min-height: 44px;
 }
 .nb-user-info:hover {
   background: rgba(255,255,255,0.06);
@@ -316,6 +338,7 @@ const styles = `
   font-size: 13px;
   color: #2dd4bf;
   font-weight: 600;
+  white-space: nowrap;
 }
 .nb-avatar {
   width: 32px;
@@ -327,6 +350,7 @@ const styles = `
   justify-content: center;
   color: #06110d;
   font-size: 16px;
+  flex-shrink: 0;
 }
 .nb-dropdown-arrow {
   color: rgba(255,255,255,0.3);
@@ -334,18 +358,22 @@ const styles = `
   transition: transform 0.2s ease;
 }
 
-/* Dropdown */
+/* Dropdown — clamped so it can never push the page wider than the viewport
+   on narrow phones, and never renders off the left/right edge. */
 .nb-dropdown {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  min-width: 200px;
+  width: max-content;
+  min-width: 180px;
+  max-width: min(240px, calc(100vw - 32px));
   background: #121822;
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 12px;
   padding: 8px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.4);
   animation: dropdownSlide 0.2s ease-out;
+  z-index: 45;
 }
 @keyframes dropdownSlide {
   from {
@@ -372,6 +400,7 @@ const styles = `
   background: none;
   width: 100%;
   cursor: pointer;
+  min-height: 40px;
 }
 .nb-dropdown-item i {
   font-size: 16px;
@@ -406,6 +435,7 @@ const styles = `
   cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 .nb-btn--ghost {
   background: none;
@@ -449,7 +479,9 @@ const styles = `
   top: 0;
   left: -320px;
   width: 300px;
+  max-width: 85vw;
   height: 100vh;
+  height: 100dvh;
   background: #0a0e14;
   border-right: 1px solid rgba(255,255,255,0.06);
   z-index: 50;
@@ -491,6 +523,8 @@ const styles = `
   cursor: pointer;
   padding: 4px;
   transition: color 0.2s ease;
+  min-width: 44px;
+  min-height: 44px;
 }
 .nb-sidebar-close:hover {
   color: #ffffff;
@@ -513,6 +547,7 @@ const styles = `
   font-size: 15px;
   font-weight: 500;
   transition: all 0.2s ease;
+  min-height: 44px;
 }
 .nb-sidebar-link i {
   font-size: 20px;
@@ -572,6 +607,7 @@ const styles = `
   justify-content: center;
   gap: 8px;
   transition: all 0.2s ease;
+  min-height: 44px;
 }
 .nb-sidebar-logout:hover {
   background: rgba(239, 68, 68, 0.1);
@@ -633,6 +669,22 @@ const styles = `
   .nb-sidebar {
     width: 280px;
     left: -280px;
+  }
+}
+
+@media (max-width: 360px) {
+  .nb-inner {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .nb-brand {
+    font-size: 16px;
+  }
+
+  .nb-btn {
+    padding: 7px 10px;
+    font-size: 12px;
   }
 }
 `;

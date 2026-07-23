@@ -25,12 +25,12 @@
     <meta name="robots" content="index, follow" />
 
     <!-- Theme -->
-    <meta name="theme-color" content="#0d6efd" />
+    <meta name="theme-color" content="#0a0e14" />
 
     <!-- Favicon -->
     <link rel="icon" href="/favicon.svg" />
 
- 
+
 
     <!-- Bootstrap Icons -->
     <link
@@ -70,10 +70,18 @@
     <!-- Performance -->
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
+    <!--
+      Matches the dark theme from index.css (--bg: #0a0e14) so there's no
+      flash of light background before the bundled stylesheet loads,
+      especially noticeable on slower mobile connections.
+    -->
     <style>
+        html, body {
+            background: #0a0e14;
+        }
+
         body {
             font-family: "Inter", sans-serif;
-            background: #f8f9fa;
         }
 
         * {
@@ -86,7 +94,7 @@
 
     <div id="root"></div>
 
- 
+
 
     <!-- React -->
     <script type="module" src="/src/main.jsx"></script>

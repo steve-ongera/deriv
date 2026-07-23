@@ -81,11 +81,14 @@ const styles = `
   background: rgba(18, 24, 34, 0.8);
   backdrop-filter: blur(8px);
   margin-top: 40px;
+  width: 100%;
+  overflow-x: hidden;
 }
 .ft-inner {
   max-width: 1200px;
   margin: 0 auto;
   padding: 48px 20px 24px;
+  min-width: 0;
 }
 .ft-top {
   display: grid;
@@ -111,6 +114,7 @@ const styles = `
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 .ft-brand {
   font-family: var(--font-display);
@@ -159,6 +163,7 @@ const styles = `
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 .ft-heading {
   color: rgba(255, 255, 255, 0.4);
@@ -192,6 +197,7 @@ const styles = `
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 .ft-bottom-row {
   display: flex;
@@ -214,6 +220,7 @@ const styles = `
   line-height: 1.6;
   margin: 0;
   max-width: 680px;
+  min-width: 0;
 }
 .ft-disclaimer i {
   font-size: 16px;
