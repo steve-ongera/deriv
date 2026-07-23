@@ -394,28 +394,129 @@ export default function TradePage() {
 
 // ---------------------------------------------------------------------------
 // Forex-style Price Chart Component
+// All values plotted here come straight from the `ticks` prop (real backend
+// data). Nothing is fabricated — "Bars" mode simply buckets consecutive real
+// ticks into OHLC-style candles instead of inventing new data points.
 // ---------------------------------------------------------------------------
+const VIEW_TICKS = 60;   // how many ticks are visible in the viewport at once
+const CANDLE_GROUP = 3;  // real ticks grouped into a single OHLC bar
+
 function PriceChart({ ticks, barrier, showBarrier }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 260 });
+  const [chartType, setChartType] = useState("line");
+
+  // panOffset = how many ticks back from the live edge the viewport is
+  // scrolled. 0 means "following live". This stays valid across polls
+  // because it's measured relative to the end of the array, not an index.
+  const [panOffset, setPanOffset] = useState(0);
+  const [slideX, setSlideX] = useState(0);
+  const [sliding, setSliding] = useState(false);
+  const dragState = useRef(null);
+  const prevLenRef = useRef(ticks.length);
 
   useEffect(() => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setDimensions({
-        width: rect.width || 600,
-        height: 260,
-      });
+      setDimensions({ width: rect.width || 600, height: 260 });
     }
   }, []);
 
+  useEffect(() => {
+    function handleResize() {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setDimensions((d) => ({ ...d, width: rect.width || d.width }));
+      }
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // A tiny slide animation each time a fresh tick lands while following
+  // live, so the chart actually feels like it's moving tick-by-tick.
+  useEffect(() => {
+    if (ticks.length !== prevLenRef.current && panOffset === 0) {
+      const width = dimensions.width || 600;
+      const step = (width - 60) / (VIEW_TICKS - 1 || 1);
+      setSliding(false);
+      setSlideX(step);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setSliding(true);
+          setSlideX(0);
+        });
+      });
+    }
+    prevLenRef.current = ticks.length;
+  }, [ticks.length, panOffset, dimensions.width]);
+
+  const maxPan = Math.max(0, ticks.length - VIEW_TICKS);
+
+  const handlePointerDown = (e) => {
+    dragState.current = { startX: e.clientX, startPan: panOffset };
+    setSliding(false);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const handlePointerMove = (e) => {
+    if (!dragState.current) return;
+    const width = dimensions.width || 600;
+    const step = (width - 60) / (VIEW_TICKS - 1 || 1) || 1;
+    const deltaX = e.clientX - dragState.current.startX;
+    const deltaTicks = Math.round(deltaX / step);
+    const nextPan = Math.min(maxPan, Math.max(0, dragState.current.startPan - deltaTicks));
+    setPanOffset(nextPan);
+  };
+
+  const handlePointerUp = () => {
+    dragState.current = null;
+  };
+
+  const goLive = () => setPanOffset(0);
+
+  const toolbar = (
+    <div className="tp-chart-toolbar">
+      <div className="tp-chart-toggle-row">
+        <button
+          className={`tp-chart-toggle ${chartType === "line" ? "tp-chart-toggle--active" : ""}`}
+          onClick={() => setChartType("line")}
+        >
+          <i className="bi bi-graph-up"></i> Line
+        </button>
+        <button
+          className={`tp-chart-toggle ${chartType === "bar" ? "tp-chart-toggle--active" : ""}`}
+          onClick={() => setChartType("bar")}
+        >
+          <i className="bi bi-bar-chart-fill"></i> Bars
+        </button>
+      </div>
+      {panOffset > 0 ? (
+        <button className="tp-chart-live-btn" onClick={goLive}>
+          <i className="bi bi-broadcast"></i> Jump to live
+        </button>
+      ) : (
+        <span className="tp-chart-live-badge">
+          <span className="tp-chart-live-dot"></span> Live
+        </span>
+      )}
+    </div>
+  );
+
   if (ticks.length < 2) {
     return (
-      <div className="tp-chart-empty" style={{ height: dimensions.height }}>
-        <i className="bi bi-hourglass-split"></i> Loading price feed…
+      <div className="tp-chart-container">
+        {toolbar}
+        <div className="tp-chart-empty" style={{ height: dimensions.height }}>
+          <i className="bi bi-hourglass-split"></i> Loading price feed…
+        </div>
       </div>
     );
   }
+
+  const end = ticks.length - panOffset;
+  const start = Math.max(0, end - VIEW_TICKS);
+  const visible = ticks.slice(start, end);
 
   const width = dimensions.width;
   const height = dimensions.height;
@@ -423,21 +524,19 @@ function PriceChart({ ticks, barrier, showBarrier }) {
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
-  const prices = ticks.map((t) => Number(t.price));
+  const prices = visible.map((t) => Number(t.price));
   const min = Math.min(...prices);
   const max = Math.max(...prices);
   const range = max - min || 1;
 
-  // Generate price levels for grid
   const gridLines = 5;
   const priceLevels = [];
   for (let i = 0; i <= gridLines; i++) {
     priceLevels.push(min + (range * i) / gridLines);
   }
 
-  // Calculate points
-  const points = ticks.map((t, i) => {
-    const x = padding.left + (i / (ticks.length - 1)) * chartWidth;
+  const points = visible.map((t, i) => {
+    const x = padding.left + (visible.length > 1 ? (i / (visible.length - 1)) * chartWidth : 0);
     const y = padding.top + chartHeight - ((Number(t.price) - min) / range) * chartHeight;
     return { x, y, price: Number(t.price), digit: t.digit };
   });
@@ -445,82 +544,153 @@ function PriceChart({ ticks, barrier, showBarrier }) {
   const last = points[points.length - 1];
   const lastEven = last.digit % 2 === 0;
 
-  // Create path
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const areaPath =
+    points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") +
+    ` L${points[points.length - 1].x.toFixed(1)},${height - padding.bottom} L${points[0].x.toFixed(1)},${height - padding.bottom} Z`;
 
-  // Create area fill
-  const areaPath = points.map((p, i) => {
-    const command = i === 0 ? "M" : "L";
-    return `${command}${p.x.toFixed(1)},${p.y.toFixed(1)}`;
-  }).join(" ") + ` L${points[points.length - 1].x.toFixed(1)},${height - padding.bottom} L${points[0].x.toFixed(1)},${height - padding.bottom} Z`;
+  // Bucket consecutive real ticks into OHLC-style bars. Open/close/high/low
+  // are all pulled from the actual tick prices in that bucket — nothing
+  // invented, just aggregated for a candlestick look.
+  const candles = [];
+  for (let g = 0; g < visible.length; g += CANDLE_GROUP) {
+    const group = visible.slice(g, g + CANDLE_GROUP);
+    if (!group.length) continue;
+    const groupPrices = group.map((t) => Number(t.price));
+    candles.push({
+      open: groupPrices[0],
+      close: groupPrices[groupPrices.length - 1],
+      high: Math.max(...groupPrices),
+      low: Math.min(...groupPrices),
+      centerIndex: g + (group.length - 1) / 2,
+    });
+  }
+  const candleSlot = chartWidth / Math.max(candles.length, 1);
+  const candleBodyWidth = Math.max(candleSlot * 0.5, 3);
+  const indexSpan = Math.max(visible.length - 1, 1);
 
   return (
-    <div ref={containerRef} className="tp-chart-container">
-      <svg className="tp-chart" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-        {/* Grid lines */}
-        {priceLevels.map((level, i) => {
-          const y = padding.top + chartHeight - ((level - min) / range) * chartHeight;
-          return (
-            <g key={i}>
-              <line
-                x1={padding.left}
-                y1={y}
-                x2={width - padding.right}
-                y2={y}
-                className="tp-grid-line"
-              />
-              <text x={padding.left - 8} y={y + 4} className="tp-grid-label">
-                {level.toFixed(4)}
-              </text>
-            </g>
-          );
-        })}
+    <div className="tp-chart-container">
+      {toolbar}
 
-        {/* Barrier line for over/under */}
-        {showBarrier && (
-          <line
-            x1={padding.left}
-            x2={width - padding.right}
-            y1={padding.top + chartHeight / 2}
-            y2={padding.top + chartHeight / 2}
-            className="tp-barrier-line"
-          />
-        )}
+      <div
+        ref={containerRef}
+        className="tp-chart-svg-wrapper"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+      >
+        <svg className="tp-chart" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#60a5fa" stopOpacity="0" />
+            </linearGradient>
+            <clipPath id="tpChartClip">
+              <rect x={padding.left} y="0" width={chartWidth} height={height} />
+            </clipPath>
+          </defs>
 
-        {/* Area fill */}
-        <path d={areaPath} className="tp-chart-area" />
+          {/* Grid lines */}
+          {priceLevels.map((level, i) => {
+            const y = padding.top + chartHeight - ((level - min) / range) * chartHeight;
+            return (
+              <g key={i}>
+                <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} className="tp-grid-line" />
+                <text x={padding.left - 8} y={y + 4} className="tp-grid-label">
+                  {level.toFixed(4)}
+                </text>
+              </g>
+            );
+          })}
 
-        {/* Main line */}
-        <path d={path} className="tp-chart-line" />
+          {/* Barrier line for over/under */}
+          {showBarrier && (
+            <line
+              x1={padding.left}
+              x2={width - padding.right}
+              y1={padding.top + chartHeight / 2}
+              y2={padding.top + chartHeight / 2}
+              className="tp-barrier-line"
+            />
+          )}
 
-        {/* Last price dot */}
-        <circle cx={last.x} cy={last.y} r="6" className={`tp-chart-dot ${lastEven ? "tp-chart-dot--even" : "tp-chart-dot--odd"}`} />
+          <g
+            clipPath="url(#tpChartClip)"
+            style={{
+              transform: `translateX(${slideX}px)`,
+              transition: sliding ? "transform 0.35s ease-out" : "none",
+            }}
+          >
+            {chartType === "line" ? (
+              <>
+                <path d={areaPath} className="tp-chart-area" />
+                <path d={path} className="tp-chart-line" />
+                <circle
+                  cx={last.x}
+                  cy={last.y}
+                  r="6"
+                  className={`tp-chart-dot ${lastEven ? "tp-chart-dot--even" : "tp-chart-dot--odd"}`}
+                />
+              </>
+            ) : (
+              candles.map((c, idx) => {
+                const x = padding.left + (c.centerIndex / indexSpan) * chartWidth;
+                const isUp = c.close >= c.open;
+                const yOpen = padding.top + chartHeight - ((c.open - min) / range) * chartHeight;
+                const yClose = padding.top + chartHeight - ((c.close - min) / range) * chartHeight;
+                const yHigh = padding.top + chartHeight - ((c.high - min) / range) * chartHeight;
+                const yLow = padding.top + chartHeight - ((c.low - min) / range) * chartHeight;
+                const bodyTop = Math.min(yOpen, yClose);
+                const bodyHeight = Math.max(Math.abs(yClose - yOpen), 2);
+                return (
+                  <g key={idx} className={isUp ? "tp-candle-up" : "tp-candle-down"}>
+                    <line x1={x} x2={x} y1={yHigh} y2={yLow} className="tp-candle-wick" />
+                    <rect
+                      x={x - candleBodyWidth / 2}
+                      y={bodyTop}
+                      width={candleBodyWidth}
+                      height={bodyHeight}
+                      className="tp-candle-body"
+                      rx="1"
+                    />
+                  </g>
+                );
+              })
+            )}
+          </g>
 
-        {/* Price labels at last point */}
-        <text x={last.x + 12} y={last.y - 10} className="tp-price-label">
-          {last.price.toFixed(4)}
-        </text>
-        <text x={last.x + 12} y={last.y + 6} className={`tp-digit-label-chart ${lastEven ? "tp-digit-label--even" : "tp-digit-label--odd"}`}>
-          Digit: {last.digit} {lastEven ? "🔵" : "🟠"}
-        </text>
-
-        {/* Current price indicator bar */}
-        <line
-          x1={last.x}
-          y1={padding.top}
-          x2={last.x}
-          y2={height - padding.bottom}
-          className="tp-current-line"
-          strokeDasharray="4 4"
-        />
-
-        {/* Zero line for barrier */}
-        {showBarrier && (
-          <text x={width - padding.right - 60} y={padding.top + chartHeight / 2 - 8} className="tp-barrier-label">
-            Barrier: {barrier}
+          {/* Price labels at last point */}
+          <text x={last.x + 12} y={last.y - 10} className="tp-price-label">
+            {last.price.toFixed(4)}
           </text>
-        )}
-      </svg>
+          <text x={last.x + 12} y={last.y + 6} className={`tp-digit-label-chart ${lastEven ? "tp-digit-label--even" : "tp-digit-label--odd"}`}>
+            Digit: {last.digit} {lastEven ? "🔵" : "🟠"}
+          </text>
+
+          {/* Current price indicator bar */}
+          <line
+            x1={last.x}
+            y1={padding.top}
+            x2={last.x}
+            y2={height - padding.bottom}
+            className="tp-current-line"
+            strokeDasharray="4 4"
+          />
+
+          {/* Barrier label */}
+          {showBarrier && (
+            <text x={width - padding.right - 60} y={padding.top + chartHeight / 2 - 8} className="tp-barrier-label">
+              Barrier: {barrier}
+            </text>
+          )}
+        </svg>
+      </div>
+
+      <p className="tp-chart-hint">
+        <i className="bi bi-arrows-move"></i> Drag the chart to scrub through recent ticks
+      </p>
     </div>
   );
 }
@@ -757,6 +927,100 @@ const styles = `
   width: 100%;
 }
 
+.tp-chart-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.tp-chart-toggle-row {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.tp-chart-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.tp-chart-toggle i {
+  font-size: 13px;
+}
+.tp-chart-toggle--active {
+  background: rgba(255,255,255,0.08);
+  color: #ffffff;
+}
+
+.tp-chart-live-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(96,165,250,0.12);
+  border: 1px solid rgba(96,165,250,0.3);
+  color: #60a5fa;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tp-chart-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+}
+.tp-chart-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  animation: tp-live-blink 1.2s ease-in-out infinite;
+}
+@keyframes tp-live-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.tp-chart-svg-wrapper {
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+.tp-chart-svg-wrapper:active {
+  cursor: grabbing;
+}
+
+.tp-chart-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tp-chart-hint i {
+  font-size: 12px;
+}
+
 .tp-chart-empty {
   display: flex;
   align-items: center;
@@ -810,6 +1074,23 @@ const styles = `
 }
 .tp-chart-dot--even { fill: #2dd4bf; }
 .tp-chart-dot--odd { fill: #f97316; }
+
+.tp-candle-wick {
+  stroke-width: 1.5;
+}
+.tp-candle-body {
+  stroke: none;
+}
+.tp-candle-up .tp-candle-wick,
+.tp-candle-up .tp-candle-body {
+  stroke: #2dd4bf;
+  fill: #2dd4bf;
+}
+.tp-candle-down .tp-candle-wick,
+.tp-candle-down .tp-candle-body {
+  stroke: #f97316;
+  fill: #f97316;
+}
 
 .tp-barrier-line {
   stroke: #fbbf24;
