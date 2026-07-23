@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { auth, marketAPI } from "../services/api.js";
 
@@ -35,6 +35,185 @@ const PAYMENT_METHODS = [
     bg: "linear-gradient(135deg, #003087, #009cde)"
   },
 ];
+
+/**
+ * Generates a pseudo-random forex-style candlestick series to seed the chart.
+ * Pure JS, deterministic-ish walk so the initial paint always looks like a
+ * plausible price move rather than pure noise.
+ */
+function generateCandles(count = 40, seed = 1) {
+  let rand = seed;
+  const nextRand = () => {
+    // simple mulberry32-ish PRNG so the chart is stable per render
+    rand |= 0;
+    rand = (rand + 0x6d2b79f5) | 0;
+    let t = Math.imul(rand ^ (rand >>> 15), 1 | rand);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const candles = [];
+  let price = 100;
+  let id = 0;
+  for (let i = 0; i < count; i++) {
+    const open = price;
+    const drift = (nextRand() - 0.48) * 3.2;
+    const close = Math.max(20, open + drift);
+    const high = Math.max(open, close) + nextRand() * 1.6;
+    const low = Math.min(open, close) - nextRand() * 1.6;
+    candles.push({ id: id++, open, close, high, low });
+    price = close;
+  }
+  return { candles, nextId: id };
+}
+
+const CANDLE_COUNT = 40;
+const TICK_MS = 350; // how often the forming candle wiggles
+const NEW_CANDLE_MS = 2200; // how often a candle closes and a new one opens
+const SLIDE_MS = 400; // scroll transition duration
+
+/**
+ * Live, scrolling forex-style candlestick chart, built entirely in JS/SVG.
+ * The current (rightmost) candle wiggles in real time to simulate live ticks,
+ * and periodically "closes" — the whole series slides left and a fresh
+ * candle opens on the right, just like a real forex feed.
+ */
+function CandleChart({ className }) {
+  const seedRef = useRef(generateCandles(CANDLE_COUNT, 7));
+  const idCounterRef = useRef(seedRef.current.nextId);
+  const [candles, setCandles] = useState(seedRef.current.candles);
+  const [offset, setOffset] = useState(0);
+  const [sliding, setSliding] = useState(false);
+
+  const width = 800;
+  const height = 600;
+  const padding = 24;
+  const candleSlot = (width - padding * 2) / CANDLE_COUNT;
+  const bodyWidth = Math.max(candleSlot * 0.55, 3);
+
+  // Live wiggle on the forming (rightmost) candle — simulates tick-by-tick price movement.
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCandles((prev) => {
+        const next = [...prev];
+        const last = { ...next[next.length - 1] };
+        const move = (Math.random() - 0.48) * 0.9;
+        last.close = Math.max(20, last.close + move);
+        last.high = Math.max(last.high, last.close, last.open);
+        last.low = Math.min(last.low, last.close, last.open);
+        next[next.length - 1] = last;
+        return next;
+      });
+    }, TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  // Periodically close the current candle, slide the chart left, and open a new one.
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSliding(true);
+      setOffset(-candleSlot);
+      const timeout = setTimeout(() => {
+        setCandles((prev) => {
+          const lastClose = prev[prev.length - 1].close;
+          const open = lastClose;
+          const wobble = (Math.random() - 0.5) * 1.5;
+          const close = Math.max(20, open + wobble);
+          const high = Math.max(open, close) + Math.random() * 1.2;
+          const low = Math.min(open, close) - Math.random() * 1.2;
+          const newCandle = { id: idCounterRef.current++, open, close, high, low };
+          return [...prev.slice(1), newCandle];
+        });
+        setSliding(false);
+        setOffset(0);
+      }, SLIDE_MS);
+      return () => clearTimeout(timeout);
+    }, NEW_CANDLE_MS);
+    return () => clearInterval(id);
+  }, [candleSlot]);
+
+  const allValues = candles.flatMap((c) => [c.high, c.low]);
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
+  const range = max - min || 1;
+
+  const yFor = (val) =>
+    padding + (height - padding * 2) * (1 - (val - min) / range);
+
+  return (
+    <svg
+      className={className}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid slice"
+      role="img"
+      aria-label="Live simulated forex candlestick chart"
+    >
+      <defs>
+        <linearGradient id="hpCandleBg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0f1621" />
+          <stop offset="100%" stopColor="#0a0e14" />
+        </linearGradient>
+        <clipPath id="hpCandleClip">
+          <rect x={padding} y="0" width={width - padding * 2} height={height} />
+        </clipPath>
+      </defs>
+      <rect x="0" y="0" width={width} height={height} fill="url(#hpCandleBg)" />
+
+      {/* faint horizontal grid lines */}
+      {[0.2, 0.4, 0.6, 0.8].map((f) => (
+        <line
+          key={f}
+          x1={padding}
+          x2={width - padding}
+          y1={padding + (height - padding * 2) * f}
+          y2={padding + (height - padding * 2) * f}
+          stroke="rgba(255,255,255,0.05)"
+          strokeWidth="1"
+        />
+      ))}
+
+      <g clipPath="url(#hpCandleClip)">
+        <g
+          style={{
+            transform: `translateX(${offset}px)`,
+            transition: sliding ? `transform ${SLIDE_MS}ms linear` : "none",
+          }}
+        >
+          {candles.map((c, i) => {
+            const x = padding + i * candleSlot + candleSlot / 2;
+            const isUp = c.close >= c.open;
+            const color = isUp ? "#2dd4bf" : "#f97316";
+            const bodyTop = yFor(Math.max(c.open, c.close));
+            const bodyBottom = yFor(Math.min(c.open, c.close));
+            const bodyHeight = Math.max(bodyBottom - bodyTop, 2);
+            const isForming = i === candles.length - 1;
+
+            return (
+              <g key={c.id} className="hp-candle" opacity={isForming ? 0.85 : 1}>
+                <line
+                  x1={x}
+                  x2={x}
+                  y1={yFor(c.high)}
+                  y2={yFor(c.low)}
+                  stroke={color}
+                  strokeWidth="2"
+                />
+                <rect
+                  x={x - bodyWidth / 2}
+                  y={bodyTop}
+                  width={bodyWidth}
+                  height={bodyHeight}
+                  fill={color}
+                  rx="1.5"
+                />
+              </g>
+            );
+          })}
+        </g>
+      </g>
+    </svg>
+  );
+}
 
 export default function HomePage() {
   const [digit, setDigit] = useState(null);
@@ -100,12 +279,7 @@ export default function HomePage() {
 
           <div className="hp-hero-visual">
             <div className="hp-hero-image-wrapper">
-              <img 
-                src="https://images.unsplash.com/photo-1640340434855-6084b1f4901c?w=800&h=600&fit=crop&crop=center" 
-                alt="Trading dashboard" 
-                className="hp-hero-image"
-                loading="lazy"
-              />
+              <CandleChart className="hp-hero-image" />
               <div className="hp-hero-image-overlay"></div>
             </div>
             
@@ -401,6 +575,12 @@ const styles = `
   bottom: 0;
   background: linear-gradient(180deg, transparent 60%, rgba(10, 14, 20, 0.6));
   pointer-events: none;
+}
+
+.hp-candle line,
+.hp-candle rect {
+  transition: y 0.3s ease, height 0.3s ease, x1 0.3s ease, x2 0.3s ease,
+    y1 0.3s ease, y2 0.3s ease, opacity 0.3s ease;
 }
 
 /* Live Ticker */
