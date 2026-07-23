@@ -75,7 +75,7 @@ export default function Navbar() {
           </button>
 
           <Link to="/" className="nb-brand">
-            VoltTrade
+            SmartTrader
           </Link>
 
           <nav className="nb-nav">
@@ -146,7 +146,7 @@ export default function Navbar() {
       <aside className={`nb-sidebar ${sidebarOpen ? "nb-sidebar--open" : ""}`}>
         <div className="nb-sidebar-header">
           <Link to="/" className="nb-sidebar-brand" onClick={closeSidebar}>
-            VoltTrade
+            SmartTrader
           </Link>
           <button className="nb-sidebar-close" onClick={closeSidebar}>
             <i className="bi bi-x-lg"></i>

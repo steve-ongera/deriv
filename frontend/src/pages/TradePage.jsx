@@ -146,7 +146,7 @@ export default function TradePage() {
                   <i className="bi bi-check-circle-fill"></i> Trade Won!
                 </div>
                 <div className="tp-flash-detail">
-                  <i className="bi bi-currency-dollar"></i> +{formatMoney(flash.profit)}
+                  <i className="bi bi-currency-dollar"></i> {formatMoney(flash.profit)}
                 </div>
                 <div className="tp-flash-sub">
                   <span><i className="bi bi-tag"></i> {flash.prediction}</span>
@@ -241,7 +241,7 @@ export default function TradePage() {
                 {ticks.length > 1 && (
                   <>
                     {Number(ticks[ticks.length - 1].price) > Number(ticks[ticks.length - 2].price) ? (
-                      <span className="tp-change-up"><i className="bi bi-arrow-up"></i> +{formatMoney(Number(ticks[ticks.length - 1].price) - Number(ticks[ticks.length - 2].price))}</span>
+                      <span className="tp-change-up"><i className="bi bi-arrow-up"></i> {formatMoney(Number(ticks[ticks.length - 1].price) - Number(ticks[ticks.length - 2].price))}</span>
                     ) : (
                       <span className="tp-change-down"><i className="bi bi-arrow-down"></i> {formatMoney(Number(ticks[ticks.length - 1].price) - Number(ticks[ticks.length - 2].price))}</span>
                     )}

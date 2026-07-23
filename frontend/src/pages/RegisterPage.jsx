@@ -41,7 +41,7 @@ export default function RegisterPage() {
         <div className="auth-brand">
           <div className="auth-logo">
             <i className="bi bi-graph-up-arrow"></i>
-            <span>VoltTrade</span>
+            <span>SmartTrader</span>
           </div>
           <p className="auth-brand-tagline">Start trading the last digit today</p>
         </div>
@@ -50,7 +50,7 @@ export default function RegisterPage() {
           <div className="auth-header">
             <span className="auth-eyebrow">Get started</span>
             <h1 className="auth-title">Create your account</h1>
-            <p className="auth-subtitle">Join thousands of traders on VoltTrade</p>
+            <p className="auth-subtitle">Join thousands of traders on SmartTrader</p>
           </div>
 
           <div className="auth-row">

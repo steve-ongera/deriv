@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="ft-inner">
         <div className="ft-top">
           <div className="ft-brand-col">
-            <span className="ft-brand">VoltTrade</span>
+            <span className="ft-brand">SmartTrader</span>
             <p className="ft-tagline">
               Trade Even/Odd and Over/Under digit contracts on a simulated synthetic index.
               Fund your account with M-Pesa or PayPal.
@@ -65,7 +65,7 @@ export default function Footer() {
             </div>
           </div>
           <p className="ft-copyright">
-            <i className="bi bi-c-circle"></i> {year} VoltTrade. All rights reserved.
+            <i className="bi bi-c-circle"></i> {year} SmartTrader. All rights reserved.
           </p>
         </div>
       </div>

@@ -250,7 +250,7 @@ export default function HomePage() {
               Trade the <span className="hp-headline-accent">last digit</span>,<br />every second.
             </h1>
             <p className="hp-subhead">
-              VoltTrade runs a live simulated price feed you can trade on with short, fixed-duration
+              SmartTrader runs a live simulated price feed you can trade on with short, fixed-duration
               digit contracts — Even/Odd and Over/Under. Fund your account with M-Pesa or PayPal and
               place your first trade in under a minute.
             </p>

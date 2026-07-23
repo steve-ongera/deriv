@@ -34,7 +34,7 @@ export default function LoginPage() {
         <div className="auth-brand">
           <div className="auth-logo">
             <i className="bi bi-graph-up-arrow"></i>
-            <span>VoltTrade</span>
+            <span>SmartTrader</span>
           </div>
           <p className="auth-brand-tagline">Trade the last digit, every second</p>
         </div>
