@@ -264,7 +264,7 @@ const styles = `
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 20px;
-  background: linear-gradient(135deg, #ffffff, #2dd4bf);
+  background: linear-gradient(135deg, #ffffff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   flex-shrink: 0;
