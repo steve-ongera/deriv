@@ -230,7 +230,12 @@ export default function TradePage() {
             </div>
           </div>
 
-          <PriceChart ticks={ticks} barrier={BARRIER} showBarrier={contractType === "over_under"} />
+          <PriceChart
+            ticks={ticks}
+            barrier={BARRIER}
+            showBarrier={contractType === "over_under"}
+            openTrades={openTrades}
+          />
 
           <div className="tp-price-row">
             <div className="tp-price-info">
@@ -401,7 +406,7 @@ export default function TradePage() {
 const VIEW_TICKS = 60;   // how many ticks are visible in the viewport at once
 const CANDLE_GROUP = 3;  // real ticks grouped into a single OHLC bar
 
-function PriceChart({ ticks, barrier, showBarrier }) {
+function PriceChart({ ticks, barrier, showBarrier, openTrades }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 260 });
   const [chartType, setChartType] = useState("line");
@@ -538,7 +543,7 @@ function PriceChart({ ticks, barrier, showBarrier }) {
   const points = visible.map((t, i) => {
     const x = padding.left + (visible.length > 1 ? (i / (visible.length - 1)) * chartWidth : 0);
     const y = padding.top + chartHeight - ((Number(t.price) - min) / range) * chartHeight;
-    return { x, y, price: Number(t.price), digit: t.digit };
+    return { x, y, price: Number(t.price), digit: t.digit, index: t.index };
   });
 
   const last = points[points.length - 1];
@@ -568,6 +573,17 @@ function PriceChart({ ticks, barrier, showBarrier }) {
   const candleSlot = chartWidth / Math.max(candles.length, 1);
   const candleBodyWidth = Math.max(candleSlot * 0.5, 3);
   const indexSpan = Math.max(visible.length - 1, 1);
+
+  // Entry markers — one per open trade whose entry tick is still inside the
+  // currently visible window. Lets the trader visually count ticks toward
+  // settlement from the exact point they entered.
+  const entryMarkers = (openTrades || [])
+    .map((trade) => {
+      const point = points.find((p) => p.index === trade.entry_tick_index);
+      if (!point) return null;
+      return { trade, point };
+    })
+    .filter(Boolean);
 
   return (
     <div className="tp-chart-container">
@@ -659,13 +675,38 @@ function PriceChart({ ticks, barrier, showBarrier }) {
                 );
               })
             )}
+
+            {/* Entry markers — green pointer at the tick where each open
+                trade was placed, so the trader can count ticks from entry. */}
+            {entryMarkers.map(({ trade, point }) => (
+              <g key={trade.id} className="tp-entry-marker">
+                <line
+                  x1={point.x}
+                  x2={point.x}
+                  y1={padding.top}
+                  y2={height - padding.bottom}
+                  className="tp-entry-line"
+                />
+                <circle cx={point.x} cy={point.y} r="5" className="tp-entry-dot" />
+                <text x={point.x} y={padding.top - 6} textAnchor="middle" className="tp-entry-label">
+                  {trade.prediction.toUpperCase()}
+                </text>
+              </g>
+            ))}
           </g>
 
-          {/* Price labels at last point */}
-          <text x={last.x + 12} y={last.y - 10} className="tp-price-label">
+          {/* Price labels at last point — right-aligned and growing toward
+              the left of the last tick so they never run off the chart
+              edge, regardless of viewport width. */}
+          <text x={last.x - 10} y={last.y - 10} textAnchor="end" className="tp-price-label">
             {last.price.toFixed(4)}
           </text>
-          <text x={last.x + 12} y={last.y + 6} className={`tp-digit-label-chart ${lastEven ? "tp-digit-label--even" : "tp-digit-label--odd"}`}>
+          <text
+            x={last.x - 10}
+            y={last.y + 6}
+            textAnchor="end"
+            className={`tp-digit-label-chart ${lastEven ? "tp-digit-label--even" : "tp-digit-label--odd"}`}
+          >
             Digit: {last.digit} {lastEven ? "🔵" : "🟠"}
           </text>
 
@@ -1126,6 +1167,27 @@ const styles = `
 }
 .tp-digit-label--even { fill: #2dd4bf; }
 .tp-digit-label--odd { fill: #f97316; }
+
+/* Entry markers — where an open trade was placed on the chart */
+.tp-entry-line {
+  stroke: #22c55e;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  opacity: 0.75;
+}
+.tp-entry-dot {
+  fill: #22c55e;
+  stroke: #0a0e14;
+  stroke-width: 2;
+}
+.tp-entry-label {
+  fill: #22c55e;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
 /* Price Row */
 .tp-price-row {
