@@ -4,7 +4,7 @@ import { authAPI } from "../services/api.js";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ username: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -46,16 +46,17 @@ export default function LoginPage() {
           </div>
 
           <div className="auth-field">
-            <label className="auth-label" htmlFor="username">Username</label>
+            <label className="auth-label" htmlFor="email">Email</label>
             <div className="auth-input-wrapper">
-              <i className="bi bi-person auth-input-icon"></i>
+              <i className="bi bi-envelope auth-input-icon"></i>
               <input
-                id="username"
+                id="email"
+                type="email"
                 className="auth-input"
-                value={form.username}
-                onChange={(e) => update("username", e.target.value)}
-                autoComplete="username"
-                placeholder="Enter your username"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+                autoComplete="email"
+                placeholder="Enter your email"
                 required
               />
             </div>

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { authAPI } from "../services/api.js";
+import { authAPI, usernameAPI } from "../services/api.js";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -14,8 +14,48 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const debounceRef = useRef(null);
+  const usernameEditedRef = useRef(false);
+
   function update(field, value) {
+    if (field === "username") usernameEditedRef.current = true;
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  // Live username suggestions — refresh as first/last name or username change,
+  // debounced so we're not hitting the API on every keystroke.
+  useEffect(() => {
+    if (!form.first_name && !form.last_name && !form.username) {
+      setSuggestions([]);
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setSuggestLoading(true);
+      try {
+        const data = await usernameAPI.suggest({
+          first_name: form.first_name,
+          last_name: form.last_name,
+          base: form.username,
+        });
+        setSuggestions(data.suggestions || []);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSuggestLoading(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [form.first_name, form.last_name, form.username]);
+
+  function pickSuggestion(name) {
+    usernameEditedRef.current = true;
+    setForm((f) => ({ ...f, username: name }));
+    setSuggestions([]);
   }
 
   async function handleSubmit(e) {
@@ -24,7 +64,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await authAPI.register(form);
-      await authAPI.login({ username: form.username, password: form.password });
+      await authAPI.login({ email: form.email, password: form.password });
       navigate("/trade");
     } catch (err) {
       setError(err.message || "Couldn't create your account. Check your details and try again.");
@@ -97,6 +137,27 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
+            {(suggestLoading || suggestions.length > 0) && (
+              <div className="auth-suggestions">
+                {suggestLoading && (
+                  <span className="auth-suggestions-loading">Finding available names…</span>
+                )}
+                {!suggestLoading &&
+                  suggestions
+                    .filter((s) => s !== form.username)
+                    .map((s) => (
+                      <button
+                        type="button"
+                        key={s}
+                        className="auth-suggestion-chip"
+                        onClick={() => pickSuggestion(s)}
+                      >
+                        {s}
+                      </button>
+                    ))}
+              </div>
+            )}
           </div>
 
           <div className="auth-field">
@@ -294,6 +355,32 @@ const styles = `
 }
 .auth-input::placeholder {
   color: rgba(255,255,255,0.25);
+}
+
+.auth-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.auth-suggestions-loading {
+  color: rgba(255,255,255,0.35);
+  font-size: 12px;
+}
+.auth-suggestion-chip {
+  background: rgba(45, 212, 191, 0.08);
+  border: 1px solid rgba(45, 212, 191, 0.25);
+  color: #2dd4bf;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.auth-suggestion-chip:hover {
+  background: rgba(45, 212, 191, 0.18);
+  border-color: #2dd4bf;
 }
 
 .auth-error {

@@ -92,11 +92,12 @@ export const authAPI = {
     });
   },
 
-  async login({ username, password }) {
+  // Login now takes { email, password } instead of { username, password }.
+  async login({ email, password }) {
     const data = await request("/auth/login/", {
       method: "POST",
       withAuth: false,
-      body: { username, password },
+      body: { email, password },
     });
     auth.setTokens(data.access, data.refresh);
     return data;
@@ -112,6 +113,16 @@ export const authAPI = {
 
   async updateMe(payload) {
     return request("/auth/me/", { method: "PATCH", body: payload });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Username suggestions (used live during registration)
+// ---------------------------------------------------------------------------
+export const usernameAPI = {
+  async suggest({ first_name = "", last_name = "", base = "" } = {}) {
+    const params = new URLSearchParams({ first_name, last_name, base });
+    return request(`/auth/username-suggestions/?${params.toString()}`, { withAuth: false });
   },
 };
 
@@ -184,6 +195,7 @@ export const tradesAPI = {
 export default {
   auth,
   authAPI,
+  usernameAPI,
   walletAPI,
   mpesaAPI,
   paypalAPI,
