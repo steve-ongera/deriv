@@ -9,6 +9,38 @@ from .models import Wallet, Transaction, Trade
 
 User = get_user_model()
 
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+
+
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Authenticate with {email, password} instead of {username, password}."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.pop(self.username_field, None)  # drop the default "username" field
+        self.fields["email"] = serializers.EmailField()
+
+    def validate(self, attrs):
+        email = (attrs.get("email") or "").strip()
+        password = attrs.get("password")
+
+        try:
+            user_obj = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            raise AuthenticationFailed("No active account found with the given credentials")
+
+        user = authenticate(
+            request=self.context.get("request"),
+            username=user_obj.get_username(),
+            password=password,
+        )
+        if user is None:
+            raise AuthenticationFailed("No active account found with the given credentials")
+
+        refresh = self.get_token(user)
+        return {"refresh": str(refresh), "access": str(refresh.access_token)}
 
 # ---------------------------------------------------------------------------
 # Auth / user

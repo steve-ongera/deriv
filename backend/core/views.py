@@ -23,6 +23,10 @@ from .serializers import (
     PaypalDepositSerializer, PaypalCaptureSerializer, PaypalWithdrawSerializer,
     TradeSerializer, PlaceTradeSerializer,
 )
+import random
+import re
+
+from .serializers import EmailTokenObtainPairSerializer
 
 User = get_user_model()
 
@@ -244,10 +248,54 @@ class RegisterView(generics.CreateAPIView):
 
 
 class LoginView(TokenObtainPairView):
-    """POST {username, password} -> {access, refresh}"""
+    """POST {email, password} -> {access, refresh}"""
+    serializer_class = EmailTokenObtainPairSerializer
     permission_classes = [AllowAny]
 
+class UsernameSuggestionsView(APIView):
+    permission_classes = [AllowAny]
 
+    def get(self, request):
+        def slugify(s):
+            return re.sub(r"[^a-z0-9]", "", (s or "").strip().lower())
+
+        first = slugify(request.query_params.get("first_name"))
+        last = slugify(request.query_params.get("last_name"))
+        base = slugify(request.query_params.get("base"))
+
+        candidates = []
+        if base:
+            candidates.append(base)
+        if first and last:
+            candidates += [f"{first}{last}", f"{first}.{last}", f"{first}_{last}", f"{last}{first}"]
+        if first:
+            candidates.append(first)
+        if last:
+            candidates.append(last)
+        if not candidates:
+            candidates = ["trader"]
+
+        seen, suggestions = set(), []
+        for c in candidates:
+            if c and c not in seen:
+                seen.add(c)
+                if not User.objects.filter(username__iexact=c).exists():
+                    suggestions.append(c)
+
+        root = candidates[0]
+        attempts = 0
+        while len(suggestions) < 5 and attempts < 30:
+            attempts += 1
+            variant = f"{root}{random.randint(1, 999)}"
+            if variant in seen:
+                continue
+            seen.add(variant)
+            if not User.objects.filter(username__iexact=variant).exists():
+                suggestions.append(variant)
+
+        return Response({"suggestions": suggestions[:5]})
+    
+    
 class MeView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
